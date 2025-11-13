@@ -50,7 +50,7 @@ hs_err_pid*
 # Eclipse
 .metadata
 bin/
-tmp/
+my_game/
 *.tmp
 *.bak
 *.swp
