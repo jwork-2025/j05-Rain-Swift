@@ -3,7 +3,7 @@ cd "$(dirname "$0")"
 mkdir -p bin
 
 # 构建LWJGL classpath
-LWJGL_DIR="../lib/lwjgl"
+LWJGL_DIR="lib/lwjgl"
 LWJGL_CP="$LWJGL_DIR/lwjgl-3.3.6.jar:$LWJGL_DIR/lwjgl-glfw-3.3.6.jar:$LWJGL_DIR/lwjgl-opengl-3.3.6.jar"
 LWJGL_CP="$LWJGL_CP:$LWJGL_DIR/lwjgl-3.3.6-natives-macos-arm64.jar"
 LWJGL_CP="$LWJGL_CP:$LWJGL_DIR/lwjgl-glfw-3.3.6-natives-macos-arm64.jar"
