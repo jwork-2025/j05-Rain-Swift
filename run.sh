@@ -1,43 +1,16 @@
 #!/bin/bash
+cd "$(dirname "$0")"
+mkdir -p bin
 
-set -e
+# 构建LWJGL classpath
+LWJGL_DIR="../lib/lwjgl"
+LWJGL_CP="$LWJGL_DIR/lwjgl-3.3.6.jar:$LWJGL_DIR/lwjgl-glfw-3.3.6.jar:$LWJGL_DIR/lwjgl-opengl-3.3.6.jar"
+LWJGL_CP="$LWJGL_CP:$LWJGL_DIR/lwjgl-3.3.6-natives-macos-arm64.jar"
+LWJGL_CP="$LWJGL_CP:$LWJGL_DIR/lwjgl-glfw-3.3.6-natives-macos-arm64.jar"
+LWJGL_CP="$LWJGL_CP:$LWJGL_DIR/lwjgl-opengl-3.3.6-natives-macos-arm64.jar"
 
-# 编译（总是先编译一次，自动发现源码）
-mkdir -p build/classes
-LWJGL_CP="."
-if [ -d "lib/lwjgl" ]; then
-  LWJGL_CP=".:lib/lwjgl/*"
-fi
-SOURCES=$(find src/main/java -type f -name "*.java")
-javac -d build/classes -cp "$LWJGL_CP" $SOURCES
+# 编译
+javac -d bin -cp "$LWJGL_CP" -sourcepath src/main/java src/main/java/com/gameengine/example/GameExample.java
 
-LWJGL_DIR="lib/lwjgl"
-CLASSPATH="build/classes"
-if [ -d "$LWJGL_DIR" ]; then
-  CLASSPATH="$CLASSPATH:$LWJGL_DIR/*"
-fi
-
-# 计算 natives 路径（与 download_lwjgl.sh 保持一致）
-OS="$(uname -s)"; ARCH_RAW="$(uname -m)"
-case "$OS" in
-  Darwin*) OS_ID="macos";;
-  Linux*) OS_ID="linux";;
-  MINGW*|MSYS*|CYGWIN*|Windows*) OS_ID="windows";;
-  *) OS_ID="";;
-esac
-case "$ARCH_RAW" in
-  arm64|aarch64) ARCH_ID="arm64";;
-  x86_64) ARCH_ID="x86_64";;
-  *) ARCH_ID="";;
-esac
-
-JAVA_FLAGS=""
-if [ -n "$OS_ID" ] && [ -n "$ARCH_ID" ] && [ -d "$LWJGL_DIR/natives/${OS_ID}-${ARCH_ID}" ]; then
-  JAVA_FLAGS="-Dorg.lwjgl.librarypath=$LWJGL_DIR/natives/${OS_ID}-${ARCH_ID}"
-fi
-
-if [[ "$OS" == Darwin* ]]; then
-  exec java -XstartOnFirstThread $JAVA_FLAGS -cp "$CLASSPATH" com.gameengine.example.Game
-else
-  exec java $JAVA_FLAGS -cp "$CLASSPATH" com.gameengine.example.Game
-fi
+# 运行 (macOS需要-XstartOnFirstThread参数)
+java -XstartOnFirstThread -cp "bin:$LWJGL_CP" com.gameengine.example.GameExample

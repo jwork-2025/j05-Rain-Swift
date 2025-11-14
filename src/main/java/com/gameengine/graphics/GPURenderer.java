@@ -16,6 +16,8 @@ import java.nio.IntBuffer;
 import org.lwjgl.BufferUtils;
 import java.util.HashMap;
 import java.util.Map;
+import javax.imageio.ImageIO;
+import java.io.File;
 
 public class GPURenderer implements IRenderer {
     private int width;
@@ -25,6 +27,7 @@ public class GPURenderer implements IRenderer {
     private boolean initialized;
     private long window;
     private Map<Character, Integer> charTextures;
+    private Map<String, Integer> imageTextures;
     private Font font;
     private int fontSize;
     private boolean texturesPreloaded;
@@ -38,6 +41,7 @@ public class GPURenderer implements IRenderer {
         this.initialized = false;
         this.window = 0;
         this.charTextures = new HashMap<>();
+        this.imageTextures = new HashMap<>();
         this.font = new Font(Font.MONOSPACED, Font.BOLD, 32);
         this.fontSize = 32;
         this.texturesPreloaded = false;
@@ -89,8 +93,14 @@ public class GPURenderer implements IRenderer {
             GLFW.glfwSwapInterval(1);
             
             GLFW.glfwShowWindow(window);
-            
-            GL11.glViewport(0, 0, width, height);
+
+            // 使用帧缓冲区大小而非窗口大小（Retina显示器支持）
+            try (MemoryStack stack = MemoryStack.stackPush()) {
+                IntBuffer fbWidth = stack.mallocInt(1);
+                IntBuffer fbHeight = stack.mallocInt(1);
+                GLFW.glfwGetFramebufferSize(window, fbWidth, fbHeight);
+                GL11.glViewport(0, 0, fbWidth.get(0), fbHeight.get(0));
+            }
             GL11.glEnable(GL11.GL_BLEND);
             GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
             GL11.glDisable(GL11.GL_DEPTH_TEST);
@@ -125,23 +135,23 @@ public class GPURenderer implements IRenderer {
     }
     
     private void setupInput() {
-        GLFW.glfwSetKeyCallback(window, (window, key, scancode, action, mods) -> {
+        GLFW.glfwSetKeyCallback(window, (w, key, scancode, action, mods) -> {
             if (action == GLFW.GLFW_PRESS) {
                 inputManager.onKeyPressed(key);
             } else if (action == GLFW.GLFW_RELEASE) {
                 inputManager.onKeyReleased(key);
             }
         });
-        
-        GLFW.glfwSetMouseButtonCallback(window, (window, button, action, mods) -> {
+
+        GLFW.glfwSetMouseButtonCallback(window, (w, button, action, mods) -> {
             if (action == GLFW.GLFW_PRESS) {
                 inputManager.onMousePressed(button);
             } else if (action == GLFW.GLFW_RELEASE) {
                 inputManager.onMouseReleased(button);
             }
         });
-        
-        GLFW.glfwSetCursorPosCallback(window, (window, xpos, ypos) -> {
+
+        GLFW.glfwSetCursorPosCallback(window, (w, xpos, ypos) -> {
             inputManager.onMouseMoved((int)xpos, (int)ypos);
         });
     }
@@ -161,11 +171,10 @@ public class GPURenderer implements IRenderer {
         
         GL11.glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
         GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
-        
+
         GL11.glEnable(GL11.GL_BLEND);
         GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
         GL11.glDisable(GL11.GL_DEPTH_TEST);
-        GL11.glDisable(GL11.GL_TEXTURE_2D);
         GL11.glDisable(GL11.GL_LIGHTING);
         GL11.glDisable(GL11.GL_CULL_FACE);
         GL11.glDisable(GL11.GL_COLOR_MATERIAL);
@@ -181,7 +190,10 @@ public class GPURenderer implements IRenderer {
     @Override
     public void drawRect(float x, float y, float w, float h, float r, float g, float b, float a) {
         if (!initialized) return;
-        
+
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
+        GL11.glEnable(GL11.GL_BLEND);
+        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
         GL11.glColor4f(r, g, b, a);
         GL11.glBegin(GL11.GL_QUADS);
         GL11.glVertex2f(x, y);
@@ -189,16 +201,15 @@ public class GPURenderer implements IRenderer {
         GL11.glVertex2f(x + w, y + h);
         GL11.glVertex2f(x, y + h);
         GL11.glEnd();
-        int err = GL11.glGetError();
-        if (err != GL11.GL_NO_ERROR) {
-            System.err.println("[GPURenderer] drawRect GL error: 0x" + Integer.toHexString(err));
-        }
     }
     
     @Override
     public void drawCircle(float x, float y, float radius, int segments, float r, float g, float b, float a) {
         if (!initialized) return;
-        
+
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
+        GL11.glEnable(GL11.GL_BLEND);
+        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
         GL11.glColor4f(r, g, b, a);
         GL11.glBegin(GL11.GL_TRIANGLE_FAN);
         GL11.glVertex2f(x, y);
@@ -215,7 +226,10 @@ public class GPURenderer implements IRenderer {
     @Override
     public void drawLine(float x1, float y1, float x2, float y2, float r, float g, float b, float a) {
         if (!initialized) return;
-        
+
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
+        GL11.glEnable(GL11.GL_BLEND);
+        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
         GL11.glLineWidth(2.5f);
         GL11.glColor4f(r, g, b, a);
         GL11.glBegin(GL11.GL_LINES);
@@ -225,17 +239,17 @@ public class GPURenderer implements IRenderer {
     }
     
     @Override
-    public void drawText(float x, float y, String text, float r, float g, float b, float a) {
+    public void drawText(String text, float x, float y, float r, float g, float b, float a, int fontSize) {
         if (!initialized || text == null || text.isEmpty()) return;
-        
+
         if (!texturesPreloaded) {
             preloadTextures();
         }
-        
+
         GL11.glEnable(GL11.GL_TEXTURE_2D);
         GL11.glEnable(GL11.GL_BLEND);
         GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-        
+
         float currentX = x;
         float charHeight = fontSize;
         float charWidth = fontSize * 0.6f;
@@ -271,7 +285,118 @@ public class GPURenderer implements IRenderer {
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
         GL11.glDisable(GL11.GL_TEXTURE_2D);
     }
-    
+
+    @Override
+    public void drawImage(String imagePath, float x, float y, float width, float height) {
+        if (!initialized || imagePath == null) return;
+
+        int textureId = getImageTexture(imagePath);
+        if (textureId <= 0) {
+            drawRect(x, y, width, height, 0.5f, 0.5f, 0.5f, 1.0f);
+            return;
+        }
+
+        GL11.glEnable(GL11.GL_TEXTURE_2D);
+        GL11.glEnable(GL11.GL_BLEND);
+        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureId);
+        GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+
+        GL11.glBegin(GL11.GL_QUADS);
+        GL11.glTexCoord2f(0.0f, 0.0f);
+        GL11.glVertex2f(x, y);
+        GL11.glTexCoord2f(1.0f, 0.0f);
+        GL11.glVertex2f(x + width, y);
+        GL11.glTexCoord2f(1.0f, 1.0f);
+        GL11.glVertex2f(x + width, y + height);
+        GL11.glTexCoord2f(0.0f, 1.0f);
+        GL11.glVertex2f(x, y + height);
+        GL11.glEnd();
+
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
+    }
+
+    private int getImageTexture(String imagePath) {
+        if (imageTextures.containsKey(imagePath)) {
+            return imageTextures.get(imagePath);
+        }
+
+        int textureId = loadImageTexture(imagePath);
+        if (textureId > 0) {
+            imageTextures.put(imagePath, textureId);
+        }
+        return textureId;
+    }
+
+    private int loadImageTexture(String imagePath) {
+        try {
+            File file = new File(imagePath);
+            if (!file.exists()) {
+                System.err.println("图片文件不存在: " + imagePath);
+                return 0;
+            }
+
+            BufferedImage img = ImageIO.read(file);
+            if (img == null) {
+                System.err.println("无法加载图片: " + imagePath);
+                return 0;
+            }
+
+            int imgWidth = img.getWidth();
+            int imgHeight = img.getHeight();
+
+            int[] pixels = new int[imgWidth * imgHeight];
+            img.getRGB(0, 0, imgWidth, imgHeight, pixels, 0, imgWidth);
+
+            ByteBuffer buffer = ByteBuffer.allocateDirect(imgWidth * imgHeight * 4);
+            for (int y = 0; y < imgHeight; y++) {
+                for (int x = 0; x < imgWidth; x++) {
+                    int pixel = pixels[y * imgWidth + x];
+                    buffer.put((byte) ((pixel >> 16) & 0xFF));
+                    buffer.put((byte) ((pixel >> 8) & 0xFF));
+                    buffer.put((byte) (pixel & 0xFF));
+                    buffer.put((byte) ((pixel >> 24) & 0xFF));
+                }
+            }
+            buffer.flip();
+
+            GLFW.glfwMakeContextCurrent(window);
+            GL11.glEnable(GL11.GL_TEXTURE_2D);
+
+            int textureId = GL11.glGenTextures();
+            if (textureId <= 0) {
+                System.err.println("无法生成纹理ID: " + imagePath);
+                return 0;
+            }
+
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureId);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
+            GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA, imgWidth, imgHeight, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, buffer);
+
+            int error = GL11.glGetError();
+            if (error != GL11.GL_NO_ERROR) {
+                System.err.println("加载图片纹理失败: " + imagePath + ", OpenGL错误: 0x" + Integer.toHexString(error));
+                GL11.glDeleteTextures(textureId);
+                return 0;
+            }
+
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+            GL11.glDisable(GL11.GL_TEXTURE_2D);
+
+            System.out.println("成功加载图片纹理: " + imagePath + " (" + imgWidth + "x" + imgHeight + ")");
+            return textureId;
+
+        } catch (Exception e) {
+            System.err.println("加载图片异常: " + imagePath + " - " + e.getMessage());
+            return 0;
+        }
+    }
+
     private void preloadTextures() {
         if (!initialized || texturesPreloaded) return;
         
@@ -535,7 +660,14 @@ public class GPURenderer implements IRenderer {
             }
         }
         charTextures.clear();
-        
+
+        for (Integer textureId : imageTextures.values()) {
+            if (textureId > 0) {
+                GL11.glDeleteTextures(textureId);
+            }
+        }
+        imageTextures.clear();
+
         if (window != MemoryUtil.NULL) {
             GLFW.glfwDestroyWindow(window);
             window = MemoryUtil.NULL;

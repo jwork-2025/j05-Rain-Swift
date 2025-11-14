@@ -13,6 +13,7 @@ lib/
 *.dll
 *.so
 *.dylib
+*.dat
 
 # Recordings (generated at runtime)
 recordings/

@@ -15,7 +15,7 @@ import java.util.List;
 /**
  * 渲染器
  */
-public class Renderer extends JFrame {
+public class Renderer extends JFrame implements IRenderer {
     private int width;
     private int height;
     private String title;

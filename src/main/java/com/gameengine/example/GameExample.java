@@ -4,7 +4,7 @@ import com.gameengine.components.*;
 import com.gameengine.core.GameObject;
 import com.gameengine.core.GameEngine;
 import com.gameengine.core.GameLogic;
-import com.gameengine.graphics.Renderer;
+import com.gameengine.graphics.IRenderer;
 import com.gameengine.math.Vector2;
 import com.gameengine.scene.Scene;
 
@@ -20,11 +20,14 @@ public class GameExample {
         
         try {
             // 创建游戏引擎
-            GameEngine engine = new GameEngine(800, 600, "葫芦娃大战妖精");
+            GameEngine engine = new GameEngine(800, 600,
+                    "葫芦娃大战妖精");
+            Scene menuScene = new MenuScene(engine,
+                    "MenuScene");
             
             // 创建游戏场景
             Scene gameScene = new Scene("GameScene") {
-                private Renderer renderer;
+                private IRenderer renderer;
                 private Random random;
                 private float time;
                 private GameLogic gameLogic;
@@ -110,7 +113,7 @@ public class GameExample {
                 }
                 
                 @Override
-                public Renderer getRenderer() {
+                public IRenderer getRenderer() {
                     return renderer;
                 }
                 
@@ -670,8 +673,8 @@ public class GameExample {
             };
             
             // 设置场景
-            engine.setScene(gameScene);
-            
+            engine.setScene(menuScene);
+
             // 运行游戏
             engine.run();
             
