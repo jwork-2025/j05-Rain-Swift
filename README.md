@@ -3,6 +3,8 @@
 
 ## 本作业添加的功能
 
+**演示视频**：https://www.bilibili.com/video/BV16crWBNEYW/
+
 ### 游戏录制/回放机制
 
 #### 实现方式
